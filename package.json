@@ -4,10 +4,10 @@
   "type": "module",
   "main": "script.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint script.js",
-    "lint:fix": "eslint script.js --fix"
-  },
+  "test": "jest --ci --reporters=default --reporters=jest-junit --outputFile=junit.xml",
+  "lint": "eslint script.js",
+  "lint:fix": "eslint script.js --fix"
+},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Jesse-tech141/website.git"
