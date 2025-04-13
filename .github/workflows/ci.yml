@@ -24,27 +24,46 @@ jobs:
       run: npm install
     
     - name: Install HTML validator with retry
+      shell: pwsh
       run: |
         mkdir -p tools
-        for i in {1..3}; do
-          curl -L -o tools/vnu.jar https://github.com/validator/validator/releases/latest/download/vnu.jar && break || sleep 10
-        done
+        $retryCount = 0
+        $maxRetries = 3
+        $downloaded = $false
+        
+        while ($retryCount -lt $maxRetries -and !$downloaded) {
+            try {
+                Invoke-WebRequest -Uri "https://github.com/validator/validator/releases/latest/download/vnu.jar" -OutFile "tools/vnu.jar"
+                if (Test-Path "tools/vnu.jar") {
+                    $downloaded = $true
+                }
+            } catch {
+                $retryCount++
+                Start-Sleep -Seconds 10
+            }
+        }
+        
+        if (!$downloaded) {
+            Write-Host "Validator download failed after $maxRetries attempts"
+        }
     
     - name: Verify validator installation
+      shell: pwsh
       run: |
-        if [ -f tools/vnu.jar ]; then
-          java -jar tools/vnu.jar --version
-        else
-          echo "Validator download failed - some checks will be skipped"
-        fi
+        if (Test-Path "tools/vnu.jar") {
+            java -jar tools/vnu.jar --version
+        } else {
+            Write-Host "Validator not available - some checks will be skipped"
+        }
     
     - name: Run HTML validation
+      shell: pwsh
       run: |
-        if [ -f tools/vnu.jar ]; then
-          java -jar tools/vnu.jar --format xml --errors-only --skip-non-html . > html-validation-results.xml
-        else
-          echo "Skipping HTML validation - validator not available"
-        fi
+        if (Test-Path "tools/vnu.jar") {
+            java -jar tools/vnu.jar --format xml --errors-only --skip-non-html . > html-validation-results.xml
+        } else {
+            Write-Host "Skipping HTML validation - validator not available"
+        }
     
     - name: Publish HTML validation results
       uses: actions/upload-artifact@v4
