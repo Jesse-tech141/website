@@ -14,14 +14,13 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                bat 'npm install'  // Only npm install remains
+                bat 'npm install'
             }
         }
         
         stage('Lint and Test') {
             steps {
                 script {
-                    // Only ESLint remains (no HTML validation)
                     bat 'npx eslint script.js -f html -o eslint-report.html --fix || echo "ESLint completed"'
                 }
             }
@@ -29,13 +28,38 @@ pipeline {
         
         stage('Build') {
             steps {
-                bat '''
-                    if not exist "dist" mkdir dist
-                    xcopy /E /I /Y "*.html" "dist\\"
-                    xcopy /E /I /Y "*.css" "dist\\"
-                    xcopy /E /I /Y "*.js" "dist\\"
-                    xcopy /E /I /Y "images" "dist\\images\\"
-                '''
+                script {
+                    // Create dist directory (if not exists)
+                    bat 'if not exist "dist" mkdir dist'
+                    
+                    // Copy files individually with error handling
+                    bat '''
+                        @echo off
+                        if exist "*.html" (
+                            xcopy /Y "*.html" "dist\\" > nul
+                        ) else (
+                            echo No HTML files found
+                        )
+                        
+                        if exist "*.css" (
+                            xcopy /Y "*.css" "dist\\" > nul
+                        ) else (
+                            echo No CSS files found
+                        )
+                        
+                        if exist "*.js" (
+                            xcopy /Y "*.js" "dist\\" > nul
+                        ) else (
+                            echo No JS files found
+                        )
+                        
+                        if exist "images" (
+                            xcopy /E /I /Y "images" "dist\\images\\" > nul
+                        ) else (
+                            echo No images directory found
+                        )
+                    '''
+                }
             }
         }
     }
