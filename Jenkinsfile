@@ -2,12 +2,19 @@ pipeline {
     agent any
     
     stages {
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', 
-                url: 'https://github.com/Jesse-tech141/website.git'
+        stage('Checkout') {
+    steps {
+        retry(3) {
+            timeout(time: 2, unit: 'MINUTES') {
+                git(
+                    url: 'https://github.com/Jesse-tech141/website.git',
+                    branch: 'master',
+                    credentialsId: 'github-token'
+                )
             }
         }
+    }
+}
         
         stage('Install Dependencies') {
             steps {
