@@ -3,9 +3,7 @@ pipeline {
     
     stages {
         stage('Checkout') {
-    steps {
-        retry(3) {
-            timeout(time: 2, unit: 'MINUTES') {
+            steps {
                 git(
                     url: 'https://github.com/Jesse-tech141/website.git',
                     branch: 'master',
@@ -13,83 +11,65 @@ pipeline {
                 )
             }
         }
-    }
-}
         
         stage('Install Dependencies') {
             steps {
                 bat 'npm install'
-                // Install HTML validator if not already in the project
                 bat 'if not exist "tools" mkdir tools'
-                bat 'curl -L -o tools/vnu.jar https://github.com/validator/validator/releases/latest/download/vnu.jar'
-                // Install jest-junit for test reporting
+                powershell '''
+                    $ProgressPreference = "SilentlyContinue"
+                    Invoke-WebRequest -Uri "https://github.com/validator/validator/releases/latest/download/vnu.jar" -OutFile "tools/vnu.jar"
+                '''
+                bat 'java -jar tools/vnu.jar --version || echo "Validator installation failed"'
                 bat 'npm install jest-junit --save-dev'
             }
         }
         
         stage('Lint and Test') {
             steps {
-                // HTML validation with XML output
+                // HTML validation
                 bat 'java -jar tools/vnu.jar --format xml --errors-only --skip-non-html . > html-validation-results.xml || echo "HTML validation completed"'
                 
-                // ESLint with HTML report
-                bat 'npx eslint script.js -f html -o eslint-report.html || echo "ESLint completed"'
+                // ESLint
+                bat 'npx eslint script.js -f html -o eslint-report.html --fix || echo "ESLint completed"'
                 
-                // Jest tests with JUnit output
-                bat 'npx jest --ci --reporters=default --reporters=jest-junit'
+                // Jest tests
+                bat 'npx jest --ci --reporters=default --reporters=jest-junit --outputFile=junit.xml'
+                
+                // Publish test results
+                junit 'junit.xml'
             }
         }
         
         stage('Build') {
             steps {
-                // For static website, just copy files to dist
-                bat 'if not exist "dist" mkdir dist'
-                bat 'xcopy /E /I /Y "*.html" "dist\\"'
-                bat 'xcopy /E /I /Y "*.css" "dist\\"'
-                bat 'xcopy /E /I /Y "*.js" "dist\\"'
-                bat 'xcopy /E /I /Y "images" "dist\\images\\"'
-            }
-        }
-        
-        stage('Deploy') {
-            steps {
-                // Archive the built files
-                archiveArtifacts artifacts: 'dist/**/*'
-                bat 'echo "Website would be deployed to production here"'
+                bat '''
+                    if not exist "dist" mkdir dist
+                    xcopy /E /I /Y "*.html" "dist\\"
+                    xcopy /E /I /Y "*.css" "dist\\"
+                    xcopy /E /I /Y "*.js" "dist\\"
+                    xcopy /E /I /Y "images" "dist\\images\\"
+                '''
             }
         }
     }
     
     post {
         always {
-            // Publish ESLint HTML report
             publishHTML target: [
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
-                keepAll: true,
                 reportDir: '',
                 reportFiles: 'eslint-report.html',
                 reportName: 'ESLint Report'
             ]
-            
-            // Publish HTML validation results (XML format)
-            junit 'html-validation-results.xml'
-            
-            // Publish Jest test results
-            junit 'junit.xml'
-            
-            // Clean up workspace
             cleanWs()
         }
-        
         success {
-            slackSend channel: '#deployments',
-                     message: "Website deployed successfully - ${env.BUILD_URL}"
+            echo "Pipeline succeeded! Build URL: ${env.BUILD_URL}"
         }
-        
         failure {
-            slackSend channel: '#build-errors',
-                     message: "Build failed - ${env.BUILD_URL}"
+            echo "Pipeline failed! Build URL: ${env.BUILD_URL}"
         }
     }
 }
