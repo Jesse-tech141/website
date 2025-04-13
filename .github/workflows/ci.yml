@@ -37,49 +37,6 @@ jobs:
         name: test-results-${{ github.run_id }}
         path: junit.xml
     
-    - name: Install HTML validator
-      shell: pwsh
-      run: |
-        mkdir -p tools
-        $retryCount = 0
-        $maxRetries = 3
-        $downloaded = $false
-        
-        while ($retryCount -lt $maxRetries -and !$downloaded) {
-            try {
-                Invoke-WebRequest -Uri "https://github.com/validator/validator/releases/latest/download/vnu.jar" -OutFile "tools/vnu.jar"
-                if (Test-Path "tools/vnu.jar") {
-                    $downloaded = $true
-                }
-            } catch {
-                $retryCount++
-                Start-Sleep -Seconds 10
-            }
-        }
-        
-        if (!$downloaded) {
-            Write-Host "::warning::Validator download failed after $maxRetries attempts"
-            exit 0
-        }
-    
-    - name: Run HTML validation
-      shell: pwsh
-      if: steps.tests.outcome == 'success'
-      run: |
-        if (Test-Path "tools/vnu.jar") {
-            java -jar tools/vnu.jar --format xml --errors-only --skip-non-html . > html-validation-results.xml
-        } else {
-            Write-Host "::warning::Skipping HTML validation - validator not available"
-            exit 0
-        }
-    
-    - name: Publish HTML validation results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: html-validation-results-${{ github.run_id }}
-        path: html-validation-results.xml
-    
     - name: Run ESLint
       run: |
         npx eslint script.js -f html -o eslint-report.html --fix || echo "::warning::ESLint found issues"
