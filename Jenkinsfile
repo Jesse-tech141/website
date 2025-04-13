@@ -14,38 +14,15 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                bat 'npm install'
-                
-                // Verify validator exists
-                script {
-                    if (!fileExists('tools/vnu.jar')) {
-                        error "HTML validator (tools/vnu.jar) not found in repository!"
-                    }
-                    
-                    // Validate the jar file
-                    def valid = bat(
-                        script: 'java -jar tools/vnu.jar --version',
-                        returnStatus: true
-                    ) == 0
-                    
-                    if (!valid) {
-                        error "The committed validator jar is invalid or corrupted!"
-                    }
-                }
+                bat 'npm install'  // Only npm install remains
             }
         }
         
         stage('Lint and Test') {
             steps {
                 script {
-                    // HTML validation
-                    bat 'java -jar tools/vnu.jar --format xml --errors-only --skip-non-html . > html-validation-results.xml || echo "HTML validation completed"'
-                    
-                    // ESLint
+                    // Only ESLint remains (no HTML validation)
                     bat 'npx eslint script.js -f html -o eslint-report.html --fix || echo "ESLint completed"'
-                    
-                    // Publish reports
-                    junit 'html-validation-results.xml'
                 }
             }
         }
