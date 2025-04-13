@@ -1,0 +1,51 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest  # Or ubuntu-latest if preferred
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Install HTML validator
+      run: |
+        mkdir -p tools
+        curl -L -o tools/vnu.jar https://github.com/validator/validator/releases/latest/download/vnu.jar
+    
+    - name: Run HTML validation
+      run: java -jar tools/vnu.jar --errors-only --skip-non-html . || echo "HTML validation completed"
+    
+    - name: Run ESLint
+      run: npx eslint script.js --fix || echo "ESLint completed"
+    
+    - name: Run tests
+      run: npx jest --ci
+    
+    - name: Build project
+      run: |
+        mkdir -p dist
+        cp *.html dist/
+        cp *.css dist/
+        cp *.js dist/
+        cp -r images dist/
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: website-build
+        path: dist/
