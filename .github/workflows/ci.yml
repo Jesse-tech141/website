@@ -26,6 +26,7 @@ jobs:
         npm install jest-junit --save-dev
     
     - name: Run tests with JUnit output
+      id: tests
       run: |
         npx jest --ci --reporters=default --reporters=jest-junit --outputFile=junit.xml
     
@@ -33,10 +34,10 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: test-results
+        name: test-results-${{ github.run_id }}
         path: junit.xml
     
-    - name: Install HTML validator with retry
+    - name: Install HTML validator
       shell: pwsh
       run: |
         mkdir -p tools
@@ -57,57 +58,41 @@ jobs:
         }
         
         if (!$downloaded) {
-            Write-Host "Validator download failed after $maxRetries attempts"
-        }
-    
-    - name: Verify validator installation
-      shell: pwsh
-      run: |
-        if (Test-Path "tools/vnu.jar") {
-            java -jar tools/vnu.jar --version
-        } else {
-            Write-Host "Validator not available - some checks will be skipped"
+            Write-Host "::warning::Validator download failed after $maxRetries attempts"
+            exit 0
         }
     
     - name: Run HTML validation
       shell: pwsh
+      if: steps.tests.outcome == 'success'
       run: |
         if (Test-Path "tools/vnu.jar") {
             java -jar tools/vnu.jar --format xml --errors-only --skip-non-html . > html-validation-results.xml
         } else {
-            Write-Host "Skipping HTML validation - validator not available"
+            Write-Host "::warning::Skipping HTML validation - validator not available"
+            exit 0
         }
     
     - name: Publish HTML validation results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: html-validation-results
+        name: html-validation-results-${{ github.run_id }}
         path: html-validation-results.xml
     
     - name: Run ESLint
       run: |
-        npx eslint script.js -f html -o eslint-report.html --fix || echo "ESLint completed"
+        npx eslint script.js -f html -o eslint-report.html --fix || echo "::warning::ESLint found issues"
     
     - name: Publish ESLint report
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: eslint-report
+        name: eslint-report-${{ github.run_id }}
         path: eslint-report.html
     
-    - name: Run tests with JUnit output
-      run: |
-        npx jest --ci --reporters=default --reporters=jest-junit --outputFile=junit.xml
-    
-    - name: Publish test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results
-        path: junit.xml
-    
     - name: Build project
+      if: steps.tests.outcome == 'success'
       run: |
         mkdir -p dist
         cp *.html dist/
@@ -117,6 +102,7 @@ jobs:
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
+      if: steps.tests.outcome == 'success'
       with:
-        name: website-build
+        name: website-build-${{ github.run_id }}
         path: dist/
