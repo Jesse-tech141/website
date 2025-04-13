@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: windows-latest  # Or ubuntu-latest if preferred
+    runs-on: windows-latest
     
     steps:
     - name: Checkout code
@@ -18,23 +18,62 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '20'
+        cache: 'npm'
     
     - name: Install dependencies
       run: npm install
     
-    - name: Install HTML validator
+    - name: Install HTML validator with retry
       run: |
         mkdir -p tools
-        curl -L -o tools/vnu.jar https://github.com/validator/validator/releases/latest/download/vnu.jar
+        for i in {1..3}; do
+          curl -L -o tools/vnu.jar https://github.com/validator/validator/releases/latest/download/vnu.jar && break || sleep 10
+        done
+    
+    - name: Verify validator installation
+      run: |
+        if [ -f tools/vnu.jar ]; then
+          java -jar tools/vnu.jar --version
+        else
+          echo "Validator download failed - some checks will be skipped"
+        fi
     
     - name: Run HTML validation
-      run: java -jar tools/vnu.jar --errors-only --skip-non-html . || echo "HTML validation completed"
+      run: |
+        if [ -f tools/vnu.jar ]; then
+          java -jar tools/vnu.jar --format xml --errors-only --skip-non-html . > html-validation-results.xml
+        else
+          echo "Skipping HTML validation - validator not available"
+        fi
+    
+    - name: Publish HTML validation results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: html-validation-results
+        path: html-validation-results.xml
     
     - name: Run ESLint
-      run: npx eslint script.js --fix || echo "ESLint completed"
+      run: |
+        npx eslint script.js -f html -o eslint-report.html --fix || echo "ESLint completed"
     
-    - name: Run tests
-      run: npx jest --ci
+    - name: Publish ESLint report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: eslint-report
+        path: eslint-report.html
+    
+    - name: Run tests with JUnit output
+      run: |
+        npx jest --ci --reporters=default --reporters=jest-junit --outputFile=junit.xml
+    
+    - name: Publish test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: junit.xml
     
     - name: Build project
       run: |
@@ -44,7 +83,7 @@ jobs:
         cp *.js dist/
         cp -r images dist/
     
-    - name: Upload artifacts
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
         name: website-build
