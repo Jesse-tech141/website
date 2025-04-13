@@ -92,13 +92,14 @@ jobs:
         path: eslint-report.html
     
     - name: Build project
-      if: steps.tests.outcome == 'success'
-      run: |
-        mkdir -p dist
-        cp *.html dist/
-        cp *.css dist/
-        cp *.js dist/
-        cp -r images dist/
+  if: steps.tests.outcome == 'success'
+  shell: pwsh
+  run: |
+    mkdir -p dist
+    Copy-Item -Path *.html -Destination dist/ -ErrorAction SilentlyContinue
+    Copy-Item -Path *.css -Destination dist/ -ErrorAction SilentlyContinue
+    Copy-Item -Path *.js -Destination dist/ -ErrorAction SilentlyContinue
+    Copy-Item -Path images -Destination dist/ -Recurse -ErrorAction SilentlyContinue
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
