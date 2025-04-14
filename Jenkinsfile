@@ -15,15 +15,16 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 bat 'npm install'
-                bat 'npm install jest-junit --save-dev'
+                // Only install if not already present
+                bat 'npm install jest-junit --save-dev --no-audit'
             }
         }
         
         stage('Lint') {
             steps {
                 script {
-                    bat 'npm run lint:fix'
-                    bat 'npx eslint script.js -f html -o eslint-report.html --fix || echo "Linting completed"'
+                    // Run linting once with HTML report generation
+                    bat 'npx eslint script.js -f html -o eslint-report.html --fix || echo "Linting completed with warnings"'
                 }
             }
         }
@@ -31,20 +32,20 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    // Clean test-results directory
-                    bat 'if exist "test-results" rmdir /s /q test-results'
-                    bat 'mkdir test-results'
+                    // Clean any previous test results
+                    bat 'if exist "junit.xml" del junit.xml'
                     
                     // Run tests using npm script
                     bat 'npm test'
                     
                     // Verify test results were generated
-                    bat 'dir test-results || dir'
+                    bat 'dir junit.xml || echo "Test results file not found"'
                 }
             }
             post {
                 always {
-                    junit 'junit.xml'  // Matches your package.json output
+                    // Publish test results from root directory
+                    junit 'junit.xml'
                 }
             }
         }
