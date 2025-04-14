@@ -1,13 +1,14 @@
-test('object equality', () => {
-  const user = { 
-    name: 'John',
-    age: 30
-  };
-  expect(user).toEqual({ name: 'John', age: 30 });
+let testData;
+
+beforeEach(() => {
+  testData = { value: 10 };
 });
 
-test('object property check', () => {
-  const car = { make: 'Toyota', model: 'Camry' };
-  expect(car).toHaveProperty('make');
-  expect(car).toHaveProperty('model', 'Camry');
+afterEach(() => {
+  testData = null;
+});
+
+test('test with setup/teardown', () => {
+  testData.value += 5;
+  expect(testData.value).toBe(15);
 });
