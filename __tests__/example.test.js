@@ -1,3 +1,13 @@
-test('adds 1 + 2 to equal 3', () => {
-    expect(1 + 2).toBe(3);
-  });
+test('object equality', () => {
+  const user = { 
+    name: 'John',
+    age: 30
+  };
+  expect(user).toEqual({ name: 'John', age: 30 });
+});
+
+test('object property check', () => {
+  const car = { make: 'Toyota', model: 'Camry' };
+  expect(car).toHaveProperty('make');
+  expect(car).toHaveProperty('model', 'Camry');
+});
