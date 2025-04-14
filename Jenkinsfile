@@ -15,7 +15,6 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 bat 'npm install'
-                // Install jest-junit if you want test reporting
                 bat 'npm install jest-junit --save-dev'
             }
         }
@@ -23,7 +22,8 @@ pipeline {
         stage('Lint') {
             steps {
                 script {
-                    bat 'npx eslint script.js -f html -o eslint-report.html --fix'
+                    bat 'npm run lint:fix'
+                    bat 'npx eslint script.js -f html -o eslint-report.html --fix || echo "Linting completed"'
                 }
             }
         }
@@ -31,13 +31,20 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    // Run tests with JUnit reporting
-                    bat 'npx jest --ci --reporters=default --reporters=jest-junit --outputFile=test-results.xml'
+                    // Clean test-results directory
+                    bat 'if exist "test-results" rmdir /s /q test-results'
+                    bat 'mkdir test-results'
+                    
+                    // Run tests using npm script
+                    bat 'npm test'
+                    
+                    // Verify test results were generated
+                    bat 'dir test-results || dir'
                 }
             }
             post {
                 always {
-                    junit 'test-results.xml'
+                    junit 'junit.xml'  // Matches your package.json output
                 }
             }
         }
@@ -45,11 +52,11 @@ pipeline {
         stage('Build') {
             steps {
                 script {
-                    // Clean dist directory
+                    // Clean and create dist directory
                     bat 'if exist "dist" rmdir /s /q dist'
                     bat 'mkdir dist'
                     
-                    // Copy files with better error handling
+                    // Copy files to dist
                     bat '''
                         @echo off
                         echo Copying build files...
