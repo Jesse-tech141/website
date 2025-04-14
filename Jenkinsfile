@@ -2,7 +2,6 @@ pipeline {
     agent any
     
     stages {
-        // Stage 1: Checkout Code
         stage('Checkout') {
             steps {
                 git(
@@ -13,59 +12,60 @@ pipeline {
             }
         }
         
-        // Stage 2: Install Dependencies
         stage('Install Dependencies') {
             steps {
                 bat 'npm install'
-                bat 'npm install jest-junit --save-dev'  // Required for JUnit reports
+                // Install jest-junit if you want test reporting
+                bat 'npm install jest-junit --save-dev'
             }
         }
         
-        // Stage 3: Linting
         stage('Lint') {
             steps {
                 script {
-                    bat 'npx eslint script.js -f html -o eslint-report.html --fix || echo "ESLint completed (warnings allowed)"'
+                    bat 'npx eslint script.js -f html -o eslint-report.html --fix'
                 }
             }
         }
         
-        // Stage 4: Testing (with JUnit output)
         stage('Test') {
             steps {
                 script {
-                    // Run tests with JUnit reporter and coverage
-                    bat 'npx jest --ci --coverage --reporters=default --reporters=jest-junit --outputFile=test-results.xml'
+                    // Run tests with JUnit reporting
+                    bat 'npx jest --ci --reporters=default --reporters=jest-junit --outputFile=test-results.xml'
                 }
             }
             post {
                 always {
-                    // Publish JUnit test results
                     junit 'test-results.xml'
-                    
-                    // Publish coverage report
-                    publishHTML target: [
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        reportDir: 'coverage/lcov-report',
-                        reportFiles: 'index.html',
-                        reportName: 'Jest Coverage Report'
-                    ]
                 }
             }
         }
         
-        // Stage 5: Build
         stage('Build') {
             steps {
                 script {
+                    // Clean dist directory
+                    bat 'if exist "dist" rmdir /s /q dist'
+                    bat 'mkdir dist'
+                    
+                    // Copy files with better error handling
                     bat '''
                         @echo off
-                        if not exist "dist" mkdir dist
-                        if exist "*.html" xcopy /Y "*.html" "dist\\" > nul
-                        if exist "*.css" xcopy /Y "*.css" "dist\\" > nul
-                        if exist "*.js" xcopy /Y "*.js" "dist\\" > nul
-                        if exist "images" xcopy /E /I /Y "images" "dist\\images\\" > nul
+                        echo Copying build files...
+                        
+                        copy /Y *.html dist\\ 2>nul || echo No HTML files found
+                        copy /Y *.css dist\\ 2>nul || echo No CSS files found
+                        copy /Y *.js dist\\ 2>nul || echo No JS files found
+                        
+                        if exist images (
+                            xcopy /E /I /Y images dist\\images\\ >nul
+                            echo Images copied
+                        ) else (
+                            echo No images directory found
+                        )
+                        
+                        echo Build files copied to dist
                     '''
                 }
             }
@@ -74,7 +74,6 @@ pipeline {
     
     post {
         always {
-            // Publish ESLint report
             publishHTML target: [
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
@@ -82,15 +81,10 @@ pipeline {
                 reportFiles: 'eslint-report.html',
                 reportName: 'ESLint Report'
             ]
-            
-            // Clean workspace
             cleanWs()
         }
         failure {
             echo "Pipeline failed! Build URL: ${env.BUILD_URL}"
-        }
-        success {
-            echo "Pipeline succeeded. Test results and coverage published."
         }
     }
 }
